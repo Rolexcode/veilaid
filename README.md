@@ -1,277 +1,184 @@
-# Bulletin Board DApp
+# VeilAid
 
-This project is built on the [Midnight Network](https://midnight.network/).
+> Prove eligibility, not identity.
 
-[![Generic badge](https://img.shields.io/badge/Compact%20Compiler-0.30.0-1abc9c.svg)](https://shields.io/)
-[![Generic badge](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://shields.io/)
+VeilAid is a privacy-preserving student-aid application built on Midnight. It lets an institution verify that an applicant is enrolled, falls below an income threshold, and has not already claimed a grant—without publishing the applicant's name, exact income, student record, or reusable identity.
 
+Built for **Brainwave 2026 — Midnight Track**.
 
-> **Use this repo as a template. Do not fork it.**
->  
-> This repository is intended to be used via GitHub’s “Use this template” flow.  
-> Forking this repo is discouraged, as forks are not tracked as independent projects.
+## Why it matters
 
-A Midnight smart contract example demonstrating a simple one-item bulletin board with zero-knowledge proofs on testnet. Users can post a single message at a time, and only the message author can remove it.
+Financial-aid systems routinely collect some of the most sensitive information a student owns. Centralized copies of identity documents, income records, and academic data create surveillance and breach risk. VeilAid replaces document disclosure with a zero-knowledge eligibility proof.
 
-## Project Structure
+The public ledger contains only:
 
+- commitments to credentials issued by an approved institution;
+- grant-specific nullifiers that prevent duplicate claims;
+- aggregate counts of credentials and accepted claims.
+
+Raw student attributes stay in local private state.
+
+## Demo flow
+
+1. Deploy the VeilAid Compact contract on Midnight PreProd.
+2. The demo institution issues a private student credential.
+3. The student proves enrollment and `household income <= $10,000`.
+4. The contract accepts the claim without exposing the underlying attributes.
+5. Submit the same claim again; the contract rejects the duplicate nullifier.
+6. The public dashboard shows aggregate claims while exposed identity and income records remain zero.
+
+## Architecture
+
+```text
+Demo institution                 Student browser
+      │                               │
+      │ issue private credential      │ local private state
+      ▼                               ▼
+┌─────────────────────────────────────────────┐
+│ Midnight Compact contract                   │
+│                                             │
+│ issuedCredentials: Set<commitment>          │
+│ usedNullifiers: Set<nullifier>              │
+│ issuedCount / approvedClaimCount            │
+└─────────────────────────────────────────────┘
+      ▲                               │
+      │ issuer authorization          │ ZK eligibility proof
+      │                               ▼
+  issuer secret                enrollment = true
+                               income <= threshold
+                               credential exists
+                               nullifier unused
 ```
-bulletin-board/
-├── contract/               # Smart contract in Compact language
-│   └── src/               # Contract source and utilities
-├── api/                   # Methods, classes and types for CLI and UI
-├── bboard-cli/            # Command-line interface
-│   └── src/               # CLI implementation
-└── bboard-ui/             # Web browser interface
-    └── src/               # Web UI implementation
-```
+
+The contract source is [`contract/src/bboard.compact`](contract/src/bboard.compact). The internal `bboard` path remains from Midnight's official reference template to reduce integration risk; all product behavior is VeilAid-specific.
+
+## Privacy model
+
+### Private
+
+- student secret;
+- enrollment status;
+- exact household income;
+- credential nonce;
+- issuer secret.
+
+### Public
+
+- hash-derived issuer key;
+- credential commitment;
+- grant-specific nullifier;
+- issued and approved counters;
+- transaction and contract identifiers.
+
+### Important limitation
+
+The hackathon demo uses a simulated university issuer. In production, an accredited institution would issue the commitment from its student-information system. VeilAid does not claim that a blockchain can independently determine whether a real-world record is truthful; it proves statements about records attested by the configured issuer.
 
 ## Prerequisites
 
-### 1. Node.js Version Check
+- Windows 11 with WSL 2 and Ubuntu, or a supported Linux/macOS environment;
+- Node.js `>=24.11.1`;
+- Docker Desktop with WSL integration;
+- Compact toolchain `0.31.x`;
+- Lace wallet configured for Midnight PreProd;
+- free PreProd tNIGHT and generated tDUST.
 
-You need Node.js:
+No real funds are required.
 
-```bash
-node --version
-```
-
-Expected output: `v24.11.1` or higher. The repository includes an [.nvmrc](./.nvmrc) pinned to `24.11.1`.
-
-If you get a lower version: [Install Node.js LTS](https://nodejs.org/).
-
-### 2. Docker Installation
-
-The [proof server](https://docs.midnight.network/develop/tutorial/using/proof-server) runs in Docker and is required for both CLI and UI to generate zero-knowledge proofs:
-
-```bash
-docker --version
-```
-
-Expected output: `Docker version X.X.X`.
-
-If Docker is not found: [Install Docker Desktop](https://docs.docker.com/desktop/). Make sure Docker Desktop is running.
-
-### 3. Lace Wallet Extension (UI Only)
-
-For the web interface, install the official Lace wallet extension on [Chrome Store](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) or the [Edge Store](https://microsoftedge.microsoft.com/addons/detail/lace/efeiemlfnahiidnjglmehaihacglceia) (tested with version 1.36.0).
-
-After installing, set up the Midnight wallet:
-
-1. Create a **new wallet** — Midnight will appear as a network option
-2. Set **Network** to **Preprod**
-3. Set **Proof server** to **Local (http://localhost:6300)** — this must point to your local proof server started via Docker
-4. Click **Enter Wallet**
-5. Fund your wallet with tNIGHT tokens from the [Preprod Faucet](https://midnight-tmnight-preprod.nethermind.dev/)
-6. Go to **Tokens** in the wallet, click **Generate tDUST**, and confirm the transaction — tDUST tokens are required to pay transaction fees on preprod
-
-## Setup Instructions
-
-### Install Project Dependencies
+## Install
 
 ```bash
 npm install
 ```
 
-This repository uses npm workspaces. Run installation once from the repository root.
-
-### Compile the Smart Contract
-
-The Compact compiler (`compactc 0.31.0`) generates TypeScript bindings and zero-knowledge circuits from the smart contract source code:
+On Windows, install Compact inside WSL:
 
 ```bash
-cd contract
-npm run compact    # Compiles the Compact contract
-npm run build      # Copies compiled files to dist/
-cd ..
+curl --proto '=https' --tlsv1.2 -LsSf \
+  https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
+source "$HOME/.local/bin/env"
+compact update
 ```
 
-Expected output:
+## Compile the contract
 
-```
-> compact
-> compact compile src/bboard.compact ./src/managed/bboard
-
-Compiling 2 circuits:
-  circuit "post" (k=14, rows=10070)
-  circuit "takeDown" (k=14, rows=10087)
-
-> build
-> rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/bboard.compact ./dist
-
-```
-
-### Build the CLI Interface
+From WSL:
 
 ```bash
-cd bboard-cli
-npm run build
-cd ..
+cd /mnt/c/path/to/veilaid/contract
+compact compile src/bboard.compact ./src/managed/bboard
 ```
 
-### Build the UI Interface (Optional)
-
-Only needed if you want to use the web interface:
+## Test
 
 ```bash
-cd bboard-ui
-npm run build
-cd ..
+npm test --workspace=@midnight-ntwrk/bboard-contract -- --run
+npm run typecheck --workspace=@midnight-ntwrk/bboard-contract
+npm run typecheck --workspace=@midnight-ntwrk/bboard-api
+npm run typecheck --workspace=@midnight-ntwrk/bboard-ui
 ```
 
-## Option 1: CLI Interface
+The contract suite covers:
 
-### Start the Proof Server
+- successful issuance and eligibility;
+- duplicate-claim rejection;
+- excessive-income rejection;
+- missing-credential rejection;
+- unauthorized issuer rejection.
 
-The CLI requires a local proof server running in Docker:
+## Run the proof server
+
+Start Docker Desktop, then:
 
 ```bash
-cd bboard-cli
-docker compose -f proof-server-local.yml up -d
+docker run --rm -p 6300:6300 midnightntwrk/proof-server:8.1.0 -- midnight-proof-server -v
 ```
 
-This uses `midnightntwrk/proof-server:8.0.3` on `http://127.0.0.1:6300`.
+Keep it running while using the application.
 
-### Run the CLI
+## Configure Lace
+
+1. Install or open Lace.
+2. Select the **Midnight PreProd** network.
+3. Set the proof server to `http://localhost:6300`.
+4. Request free tNIGHT from the PreProd faucet.
+5. Generate tDUST in Lace.
+
+## Build and run
 
 ```bash
-# For preprod network
-npm run preprod-remote
-
-# For preview network
-npm run preview-remote
+npm run build --workspace=@midnight-ntwrk/bboard-contract
+npm run build --workspace=@midnight-ntwrk/bboard-ui
+npx http-server --port 4173 bboard-ui/dist
 ```
 
-### Using the CLI
+Open `http://127.0.0.1:4173` in the browser that has Lace installed.
 
-#### Create a Wallet
+## Project structure
 
-1. Choose option `1` to build a fresh wallet
-2. The system will generate a wallet address and seed
-3. **Save both the address and seed** - you'll need them later
-
-Expected output is similar to:
-
-```
-Your wallet seed is: [64-character hex string]
-Using unshielded address: mn_addr_preprod1hdvtst70zfgd8wvh7l8ppp7mcrxnjn56wc5hlxpwflz3fxdykaesrw0ln4 waiting for funds...
+```text
+contract/    Compact contract, witnesses, generated circuits, simulator tests
+api/         Midnight deployment, state subscriptions, transaction calls
+bboard-ui/   React + Vite judge-facing application
+docs/        Architecture, demo, and submission material
 ```
 
-#### Fund Your Wallet
+## Security decisions
 
-Before deploying contracts, you need testnet tokens.
+- Domain-separated hashes are used for issuer keys, credentials, and claims.
+- A claim nullifier is scoped to a grant, preventing replay without creating a universal student identifier.
+- Eligibility comparisons happen inside the Compact circuit.
+- The contract verifies credential membership before accepting a claim.
+- Only the configured issuer secret can issue credential commitments.
 
-1. Copy your wallet address from the output above
-2. Visit the [faucet](https://midnight-tmnight-preprod.nethermind.dev/)
-3. Paste your address and request funds
-4. Wait for the CLI to detect the funds (takes 2-3 minutes)
+## Built with
 
-Expected output after funding is similar to:
+- Midnight Compact `0.23` language / `0.31.x` compiler
+- Midnight.js `4.1.1`
+- Midnight wallet SDK and Lace connector
+- React 19, Vite 8, Material UI 9
+- Vitest
 
-```
-Your NIGHT wallet balance is: 1000000000
-```
+## License
 
-#### Deploy Your Contract
-
-1. Choose the contract deployment option
-2. Wait for deployment (takes ~30 seconds)
-3. **Save the contract address** for future use
-
-Expected output:
-
-```
-Deployed bulletin board contract at address: [contract address]
-```
-
-#### Use the Bulletin Board
-
-You can now:
-
-- **Post** a message to the bulletin board
-- **View** the current message
-- **Remove** your message (only if you posted it)
-- **Exit** when done
-
-Each action creates a real transaction on Midnight Testnet using zero-knowledge proofs generated by the proof server.
-
-## Option 2: Web UI Interface
-
-The web interface uses the same proof server and requires additional browser setup.
-
-### Start the Proof Server (if not already running)
-
-If you haven't started the proof server for the CLI, start it now:
-
-```bash
-cd bboard-cli
-docker compose -f proof-server-local.yml up -d
-cd ..
-```
-
-Verify it's running:
-
-```bash
-docker ps
-```
-
-### Start the Web Interface
-
-The UI can run against preprod or preview networks:
-
-```bash
-cd bboard-ui
-
-# For preprod network
-npm run build:start
-
-# For preview network
-npm run build:start:preview
-```
-
-The UI will be available at:
-
-- http://127.0.0.1:8080
-
-### Browser Setup
-
-1. **Open the UI URL** in a browser with Lace wallet extension installed
-2. **Set up Lace wallet** if it's your first time
-3. **Authorize the application** when Lace wallet prompts
-4. Use the bulletin board web interface
-
-## Useful Links
-
-- Get Testnet tNIGHT on [Preprod Faucet](https://midnight-tmnight-preprod.nethermind.dev/) or [Preview Faucet](https://midnight-tmnight-preview.nethermind.dev/)
-- [Midnight Documentation](https://docs.midnight.network/examples/dapps/bboard) - Complete developer guide
-- [Compatibility Matrix](https://docs.midnight.network/relnotes/support-matrix) - Current supported Midnight component versions
-- [Compact Language Guide](https://docs.midnight.network/compact/writing) - Smart contract language reference
-- Get Lace wallet on the [Chrome Store](https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk) or the [Edge Store](https://microsoftedge.microsoft.com/addons/detail/lace/efeiemlfnahiidnjglmehaihacglceia)
-
-## Troubleshooting
-
-| Common Issue                       | Solution                                                                                                  |
-| ---------------------------------- |-----------------------------------------------------------------------------------------------------------|
-| `npm install` fails                | Ensure you're using Node `v24.11.1` or newer. Older Node versions can install with warnings but are not the target runtime |
-| Contract compilation fails         | Ensure the Compact toolchain is installed and run `npm run compact` from `contract/`                      |
-| Network connection timeout         | CLI requires internet connection, restart if connection times out                                         |
-| Token funding takes too long       | Wait 1-2 minutes, funding is automatic in CLI                                                             |
-| "Application not authorized" error | Start proof server: `docker compose -f proof-server-local.yml up -d`                                      |
-| Lace wallet not detected           | Install Lace wallet browser extension and refresh page                                                    |
-| Docker issues                      | Ensure Docker Desktop is running, check `docker --version`                                                |
-| Port 6300 in use                   | Run `docker compose down` then restart services                                                           |
-| Dependencies won't install         | Use Node.js LTS version. For older npm versions, you may need `--legacy-peer-deps`                        |
-| Contract deployment fails          | Verify wallet has sufficient balance and network connection                                               |
-
-## Notes
-
-- CLI and UI can run simultaneously and share the same proof server
-- Proof server (Docker) is required for both CLI and UI to generate zero-knowledge proofs
-- Contract must be compiled before building CLI or UI
-- Fund your wallet using the testnet faucet before deploying contracts
-
-## Implementation Notes
-
-- **Transaction fee configuration**  
-  The default `additionalFeeOverhead` value (`500_000_000_000_000_000n`) from `@midnight-ntwrk/testkit-js` is required on the `undeployed` network. Lower values can fail with `BalanceCheckOverspend` on the node side. On remote networks, that overhead requires too much dust, so the CLI overrides it to `1_000n`.
-- CLI private state is stored per contract address, matching the `Midnight.js 4.x` private-state provider model.
+Apache-2.0, following the Midnight reference implementation used as the integration base.

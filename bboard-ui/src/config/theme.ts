@@ -1,40 +1,40 @@
-// This file is part of midnightntwrk/example-bboard.
-// Copyright (C) Midnight Foundation
-// SPDX-License-Identifier: Apache-2.0
-// Licensed under the Apache License, Version 2.0 (the "License");
-// You may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-import { createTheme, alpha } from '@mui/material';
-
-const midnightGrey = alpha('#a8a8a8', 0.7);
+import { createTheme } from '@mui/material';
 
 export const theme = createTheme({
-  typography: {
-    fontFamily: 'Helvetica',
-    allVariants: {
-      color: 'white',
-    },
-  },
   palette: {
-    primary: {
-      main: midnightGrey,
-      light: alpha(midnightGrey, 0.5),
-      dark: alpha(midnightGrey, 0.9),
+    mode: 'light',
+    primary: { main: '#163d32', contrastText: '#f8faf8' },
+    secondary: { main: '#5b6f65' },
+    success: { main: '#26745b' },
+    error: { main: '#a43f3f' },
+    background: { default: '#f4f1e9', paper: '#fffdf8' },
+    text: { primary: '#17211d', secondary: '#52605a' },
+    divider: '#d9ddd8',
+  },
+  shape: { borderRadius: 12 },
+  typography: {
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    h1: { fontWeight: 650, letterSpacing: '-0.045em' },
+    h2: { fontWeight: 650, letterSpacing: '-0.035em' },
+    h3: { fontWeight: 650, letterSpacing: '-0.025em' },
+    button: { fontWeight: 650, textTransform: 'none', letterSpacing: '-0.01em' },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { minHeight: 44, borderRadius: 10, boxShadow: 'none' },
+      },
     },
-    secondary: {
-      main: '#8c8c8c',
+    MuiCard: {
+      styleOverrides: { root: { boxShadow: 'none', border: '1px solid #d9ddd8' } },
     },
-    background: {
-      default: '#464655',
+    MuiCssBaseline: {
+      styleOverrides: {
+        '::selection': { backgroundColor: '#cfe6da', color: '#17211d' },
+        '@media (prefers-reduced-motion: reduce)': {
+          '*, *::before, *::after': { animationDuration: '0.01ms !important', transitionDuration: '0.01ms !important' },
+        },
+      },
     },
   },
 });

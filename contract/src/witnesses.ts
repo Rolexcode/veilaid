@@ -30,11 +30,25 @@ import { WitnessContext } from "@midnight-ntwrk/midnight-js-protocol/compact-run
  */
 
 export type BBoardPrivateState = {
-  readonly secretKey: Uint8Array;
+  readonly issuerSecret: Uint8Array;
+  readonly studentSecret: Uint8Array;
+  readonly enrollmentStatus: bigint;
+  readonly householdIncome: bigint;
+  readonly credentialNonce: Uint8Array;
 };
 
-export const createBBoardPrivateState = (secretKey: Uint8Array) => ({
-  secretKey,
+export const createBBoardPrivateState = (
+  studentSecret: Uint8Array,
+  credentialNonce: Uint8Array = new Uint8Array(32),
+  enrollmentStatus = 1n,
+  householdIncome = 4_200n,
+  issuerSecret: Uint8Array = new Uint8Array(32),
+): BBoardPrivateState => ({
+  issuerSecret,
+  studentSecret,
+  enrollmentStatus,
+  householdIncome,
+  credentialNonce,
 });
 
 /* **********************************************************************
@@ -65,10 +79,34 @@ export const createBBoardPrivateState = (secretKey: Uint8Array) => ({
  * only the binding for the privateState in scope.
  */
 export const witnesses = {
-  localSecretKey: ({
+  localIssuerSecret: ({
     privateState,
   }: WitnessContext<Ledger, BBoardPrivateState>): [
     BBoardPrivateState,
     Uint8Array,
-  ] => [privateState, privateState.secretKey],
+  ] => [privateState, privateState.issuerSecret],
+  localStudentSecret: ({
+    privateState,
+  }: WitnessContext<Ledger, BBoardPrivateState>): [
+    BBoardPrivateState,
+    Uint8Array,
+  ] => [privateState, privateState.studentSecret],
+  localEnrollmentStatus: ({
+    privateState,
+  }: WitnessContext<Ledger, BBoardPrivateState>): [
+    BBoardPrivateState,
+    bigint,
+  ] => [privateState, privateState.enrollmentStatus],
+  localHouseholdIncome: ({
+    privateState,
+  }: WitnessContext<Ledger, BBoardPrivateState>): [
+    BBoardPrivateState,
+    bigint,
+  ] => [privateState, privateState.householdIncome],
+  localCredentialNonce: ({
+    privateState,
+  }: WitnessContext<Ledger, BBoardPrivateState>): [
+    BBoardPrivateState,
+    Uint8Array,
+  ] => [privateState, privateState.credentialNonce],
 };

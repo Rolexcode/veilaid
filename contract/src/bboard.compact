@@ -1,60 +1,120 @@
-// This file is part of midnightntwrk/example-bboard.
-// Copyright (C) Midnight Foundation
-// SPDX-License-Identifier: Apache-2.0
-// Licensed under the Apache License, Version 2.0 (the "License");
-// You may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// VeilAid — private student-aid eligibility on Midnight.
 //
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// The public ledger stores only credential commitments, one-time nullifiers,
+// and aggregate counters. Enrollment status, household income, and the
+// student's secret never leave the prover's private state.
 
 pragma language_version 0.23;
 
 import CompactStandardLibrary;
 
-export enum State {
-  VACANT,
-  OCCUPIED
+export ledger issuerKey: Bytes<32>;
+export ledger issuedCredentials: Set<Bytes<32>>;
+export ledger usedNullifiers: Set<Bytes<32>>;
+export ledger issuedCount: Counter;
+export ledger approvedClaimCount: Counter;
+
+constructor(initialIssuerKey: Bytes<32>) {
+  issuerKey = disclose(initialIssuerKey);
 }
 
-export ledger state: State;
+// Private values supplied locally by the institution or applicant.
+witness localIssuerSecret(): Bytes<32>;
+witness localStudentSecret(): Bytes<32>;
+witness localEnrollmentStatus(): Uint<64>;
+witness localHouseholdIncome(): Uint<64>;
+witness localCredentialNonce(): Bytes<32>;
 
-export ledger message: Maybe<Opaque<"string">>;
-
-export ledger sequence: Counter;
-
-export ledger owner: Bytes<32>;
-
-constructor() {
-  state = State.VACANT;
-  message = none<Opaque<"string">>();
-  sequence.increment(1);
+export circuit issuerPublicKey(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([
+    pad(32, "veilaid:issuer"),
+    secret
+  ]);
 }
 
-witness localSecretKey(): Bytes<32>;
-
-export circuit post(newMessage: Opaque<"string">): [] {
-  assert(state == State.VACANT, "Attempted to post to an occupied board");
-  owner = disclose(publicKey(localSecretKey(), sequence as Field as Bytes<32>));
-  message = disclose(some<Opaque<"string">>(newMessage));
-  state = State.OCCUPIED;
+export circuit credentialCommitment(
+  studentSecret: Bytes<32>,
+  enrollmentStatus: Uint<64>,
+  householdIncome: Uint<64>,
+  credentialNonce: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<5, Bytes<32>>>([
+    pad(32, "veilaid:credential"),
+    studentSecret,
+    enrollmentStatus as Bytes<32>,
+    householdIncome as Bytes<32>,
+    credentialNonce
+  ]);
 }
 
-export circuit takeDown(): Opaque<"string"> {
-  assert(state == State.OCCUPIED, "Attempted to take down post from an empty board");
-  assert(owner == publicKey(localSecretKey(), sequence as Field as Bytes<32>), "Attempted to take down post, but not the current owner");
-  const formerMsg = message.value;
-  state = State.VACANT;
-  sequence.increment(1);
-  message = none<Opaque<"string">>();
-  return formerMsg;
+// The demo institution issues a commitment. The underlying student record is
+// used inside the proof and is never written to public state.
+export circuit issueCredential(
+  studentSecret: Bytes<32>,
+  enrollmentStatus: Uint<64>,
+  householdIncome: Uint<64>,
+  credentialNonce: Bytes<32>
+): [] {
+  assert(
+    disclose(issuerPublicKey(localIssuerSecret()) == issuerKey),
+    "Only the approved institution can issue credentials"
+  );
+
+  const commitment = credentialCommitment(
+    studentSecret,
+    enrollmentStatus,
+    householdIncome,
+    credentialNonce
+  );
+
+  assert(
+    !issuedCredentials.member(disclose(commitment)),
+    "Credential has already been issued"
+  );
+  issuedCredentials.insert(disclose(commitment));
+  issuedCount.increment(1);
 }
 
-export circuit publicKey(sk: Bytes<32>, sequence: Bytes<32>): Bytes<32> {
-  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "bboard:pk:"), sequence, sk]);
+// A student proves enrollment and an income threshold from private local
+// values. The grant ID scopes the nullifier so one credential may be used once
+// per grant, without making separate grant applications linkable.
+export circuit claimGrant(grantId: Bytes<32>, maximumIncome: Uint<64>): [] {
+  const studentSecret = localStudentSecret();
+  const enrollmentStatus = localEnrollmentStatus();
+  const householdIncome = localHouseholdIncome();
+  const credentialNonce = localCredentialNonce();
+
+  assert(
+    disclose(enrollmentStatus == 1),
+    "Applicant is not currently enrolled"
+  );
+  assert(
+    disclose(householdIncome <= maximumIncome),
+    "Applicant does not meet this grant's income rule"
+  );
+
+  const commitment = credentialCommitment(
+    studentSecret,
+    enrollmentStatus,
+    householdIncome,
+    credentialNonce
+  );
+  assert(
+    issuedCredentials.member(disclose(commitment)),
+    "No credential from the approved institution was found"
+  );
+
+  const nullifier = persistentHash<Vector<4, Bytes<32>>>([
+    pad(32, "veilaid:claim"),
+    grantId,
+    studentSecret,
+    credentialNonce
+  ]);
+  assert(
+    !usedNullifiers.member(disclose(nullifier)),
+    "This credential has already claimed this grant"
+  );
+
+  usedNullifiers.insert(disclose(nullifier));
+  approvedClaimCount.increment(1);
 }
