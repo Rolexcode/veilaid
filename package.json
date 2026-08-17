@@ -1,10 +1,14 @@
 {
-  "name": "@midnight-ntwrk/example-bboard",
+  "name": "veilaid",
   "version": "0.1.0",
-  "author": "IOG",
-  "license": "MIT",
+  "author": "Rolexcode",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "check": "npm run test --workspace=contract -- --run && npm run lint --workspace=contract && npm run lint --workspace=api && npm run lint --workspace=bboard-ui && npm run typecheck --workspace=contract && npm run typecheck --workspace=api && npm run typecheck --workspace=bboard-ui",
+    "build": "npm run build --workspace=contract && npm run build --workspace=bboard-ui"
+  },
   "engines": {
     "node": ">=24.11.1"
   },

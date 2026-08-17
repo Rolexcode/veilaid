@@ -105,6 +105,13 @@ export const Board: React.FC<Readonly<BoardProps>> = ({ boardDeployment$ }) => {
     }
   }, [api]);
 
+  const copyContractAddress = useCallback(async () => {
+    if (!api) return;
+    await navigator.clipboard.writeText(api.deployedContractAddress);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }, [api]);
+
   if (!boardDeployment$) {
     return (
       <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
@@ -113,11 +120,14 @@ export const Board: React.FC<Readonly<BoardProps>> = ({ boardDeployment$ }) => {
             sx={{ height: '100%', bgcolor: 'primary.main', color: 'primary.contrastText', borderColor: 'primary.main' }}
           >
             <CardContent sx={{ p: { xs: 3, md: 5 }, '&:last-child': { pb: { xs: 3, md: 5 } } }}>
-              <Chip
-                label="Live Midnight demo"
-                size="small"
-                sx={{ bgcolor: 'rgba(255,255,255,.12)', color: 'inherit' }}
-              />
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Chip
+                  label="Live Midnight demo"
+                  size="small"
+                  sx={{ bgcolor: 'rgba(255,255,255,.12)', color: 'inherit' }}
+                />
+                <Chip label="PreProd" size="small" sx={{ bgcolor: 'rgba(255,255,255,.12)', color: 'inherit' }} />
+              </Stack>
               <Typography variant="h2" sx={{ mt: 3, fontSize: { xs: '2rem', md: '3rem' } }}>
                 Emergency Student Grant
               </Typography>
@@ -130,6 +140,7 @@ export const Board: React.FC<Readonly<BoardProps>> = ({ boardDeployment$ }) => {
                 color="inherit"
                 startIcon={<AddRoundedIcon aria-hidden="true" />}
                 onClick={() => provider.resolve()}
+                aria-busy={deployment?.status === 'in-progress'}
                 sx={{ mt: 4, color: 'primary.main', bgcolor: 'background.paper', px: 3 }}
               >
                 Deploy VeilAid contract
@@ -287,13 +298,13 @@ export const Board: React.FC<Readonly<BoardProps>> = ({ boardDeployment$ }) => {
               <Button
                 size="small"
                 startIcon={<ContentCopyRoundedIcon aria-hidden="true" />}
-                onClick={async () => {
-                  await navigator.clipboard.writeText(api.deployedContractAddress);
-                  setCopied(true);
-                }}
+                onClick={copyContractAddress}
+                aria-label="Copy deployed contract address"
                 sx={{ mt: 1.5 }}
               >
-                {copied ? 'Copied' : 'Copy address'}
+                <Box component="span" aria-live="polite">
+                  {copied ? 'Copied!' : 'Copy address'}
+                </Box>
               </Button>
             </CardContent>
           </Card>
@@ -308,7 +319,7 @@ const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) =>
     <Typography variant="body2" color="text.secondary">
       {label}
     </Typography>
-    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+    <Typography variant="h5" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
       {value}
     </Typography>
   </Box>

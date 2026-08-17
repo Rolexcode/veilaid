@@ -2,9 +2,24 @@
 
 > Prove eligibility, not identity.
 
+[![Midnight](https://img.shields.io/badge/Midnight-PreProd-6f3cff)](https://midnight.network/)
+[![Compact](https://img.shields.io/badge/Compact-0.31.x-163d32)](https://docs.midnight.network/compact/)
+[![Tests](https://img.shields.io/badge/tests-6%20passing-1f7a55)](#test)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 VeilAid is a privacy-preserving student-aid application built on Midnight. It lets an institution verify that an applicant is enrolled, falls below an income threshold, and has not already claimed a grant—without publishing the applicant's name, exact income, student record, or reusable identity.
 
 Built for **Brainwave 2026 — Midnight Track**.
+
+## Submission status
+
+| Component        | Status                                               |
+| ---------------- | ---------------------------------------------------- |
+| Compact contract | Compiles successfully                                |
+| Simulator suite  | 6/6 tests passing                                    |
+| Web application  | Production build passing                             |
+| Target network   | Midnight PreProd                                     |
+| Real deployment  | Contract address added after final wallet deployment |
 
 ## Why it matters
 
@@ -112,10 +127,7 @@ compact compile src/bboard.compact ./src/managed/bboard
 ## Test
 
 ```bash
-npm test --workspace=@midnight-ntwrk/bboard-contract -- --run
-npm run typecheck --workspace=@midnight-ntwrk/bboard-contract
-npm run typecheck --workspace=@midnight-ntwrk/bboard-api
-npm run typecheck --workspace=@midnight-ntwrk/bboard-ui
+npm run check
 ```
 
 The contract suite covers:
@@ -131,7 +143,7 @@ The contract suite covers:
 Start Docker Desktop, then:
 
 ```bash
-docker run --rm -p 6300:6300 midnightntwrk/proof-server:8.1.0 -- midnight-proof-server -v
+docker run --rm -p 6300:6300 midnightntwrk/proof-server:8.1.0 midnight-proof-server -v
 ```
 
 Keep it running while using the application.
@@ -147,8 +159,7 @@ Keep it running while using the application.
 ## Build and run
 
 ```bash
-npm run build --workspace=@midnight-ntwrk/bboard-contract
-npm run build --workspace=@midnight-ntwrk/bboard-ui
+npm run build
 npx http-server --port 4173 bboard-ui/dist
 ```
 
